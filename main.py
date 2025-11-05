@@ -1,8 +1,9 @@
 #import fastapi 
-from typing import List
+from typing import List, Optional
 from uuid import UUID, uuid4
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
+from UserUpdateRequest import UserUpdateRequest
 from models import Gender, Role, User 
 
 
@@ -49,3 +50,52 @@ DELETE - deletes the resource
 async def fetch_users():
     return db
 
+#creating an endpoint to create a new user 
+#we can ahve the same path since this is a different HTTP method 
+@app.post("/api/v1/users")
+#it will take in a parameter, user 
+async def create_user(user: User):
+    #add the user to the database 
+    db.append(user) 
+    return {"id": user.id}
+
+#deleting users 
+#deleting the users base doff user id 
+@app.delete("/api/v1/users/{user_id}")
+#taking in the user id, of type UUID 
+#if we try deleting a user that doesnt exist, we should get a 404 ('not found') error 
+async def delete_user(user_id: UUID):
+    for user in db:
+        if user.id == user_id: 
+            db.remove(user) 
+            #coming out of the loop once we find the user 
+            return 
+    #if the condition isnt met, meaning we dont find a user with this id, lets raise an exception
+    #we are returning the 404 error, code and providing some detail as well 
+    raise HTTPException(
+        status_code = 404, 
+        detail =f"user with id {user_id} does not exist"
+    )
+
+#updating a user 
+@app.put("/api/v1/users/{user_id}")
+async def update_user(user_id: UUID, update_user: UserUpdateRequest):
+    #first finding the user with the matching id 
+    for user in db:
+        if user_id == user_id:
+            #we are updating all the fields in the user that aren't none (meaning that we dont have to update those)
+            #after updating all of we can break out of the loop 
+            if update_user.first_name is not None:
+                user.first_name = update_user.first_name
+            if update_user.last_name is not None:
+                user.last_name = update_user.last_name
+            if update_user.middle_name is not None:
+                user.middle_name = update_user.middle_name
+            if update_user.roles is not None:
+                user.roles = update_user.roles
+            return
+    raise HTTPException(
+        status_code = 404,
+        detail = f"user with id {user_id} not found"
+    )
+    
